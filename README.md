@@ -45,6 +45,39 @@ yet provide complete conventional inode replacement semantics. The planned
 defined in [Filesystem semantics](docs/FILESYSTEM_SEMANTICS.md). The CLI flag
 for selecting between those policies has not been implemented yet.
 
+## Snapshot storage and cost
+
+> [!WARNING]
+> The planned stable-open model gives each observed Kubernetes object revision
+> an immutable inode snapshot. Recursive tools such as `rg`, `find`, or an
+> editor indexer can resolve a large part of the cluster and may cause many
+> object bodies to be retained. In memory mode, usage can approach the total
+> serialized size of all objects visible to the Kubernetes identity.
+
+The planned CLI will allow the snapshot backend to be selected explicitly:
+
+```text
+--snapshot-store=memory
+--snapshot-store=disk
+```
+
+Memory will remain the default so cluster data is not written to disk without
+the user's consent. Disk mode will trade heap use for local disk capacity and
+I/O. It will store uncompressed snapshots so FUSE reads can efficiently access
+arbitrary offsets.
+
+> [!CAUTION]
+> Disk snapshots may contain Secrets and other sensitive Kubernetes objects.
+> The disk store must use a private cache directory and files, enforce a
+> capacity limit, and define cleanup for both normal shutdown and stale data
+> left by crashes. The option is documented here as planned behavior and is
+> not implemented yet.
+
+Open file handles, kernel lookup references, and open directory snapshots can
+legitimately retain an object revision indefinitely. Resource limits may
+reject new snapshots when all retained revisions are still referenced; they
+must not silently discard data required by existing handles.
+
 ## Requirements
 
 - Rust with support for edition 2024
